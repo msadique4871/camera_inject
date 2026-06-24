@@ -210,9 +210,9 @@ static int handler_pre(struct kprobe *kp, struct pt_regs *regs)
         if (!plane->dbuf)
             continue;
 
-        dmabuf = get_dma_buf(plane->dbuf);
-        if (!dmabuf)
-            continue;
+        dmabuf = plane->dbuf;
+        get_dma_buf(dmabuf);
+        /* get_dma_buf returns void on 5.11+, pointer on 5.10 */
 
         iw = kzalloc(sizeof(*iw), GFP_ATOMIC);
         if (!iw) {

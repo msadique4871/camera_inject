@@ -23,7 +23,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
-            git curl bc bison flex libssl-dev libelf-dev make python3 dwarves
+            git curl bc bison flex libssl-dev libelf-dev make python3 dwarves gcc-aarch64-linux-gnu
 
       - name: Fetch GKI kernel source (${{ matrix.gki-branch }})
         run: |
@@ -35,13 +35,15 @@ jobs:
       - name: Generate defconfig + prepare
         run: |
           cd /tmp/gki-${{ matrix.gki-branch }}
-          make ARCH=arm64 CC=clang gki_defconfig
-          make ARCH=arm64 CC=clang modules_prepare
+          make ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- \
+            gki_defconfig
+          make ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- \
+            modules_prepare
 
       - name: Build cam_inject.ko
         run: |
           cd /tmp/gki-${{ matrix.gki-branch }}
-          make ARCH=arm64 CC=clang \
+          make ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- \
             M=${{ github.workspace }}/kernel \
             modules
 
