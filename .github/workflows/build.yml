@@ -92,17 +92,18 @@ jobs:
 
       - name: Assemble Magisk zips
         run: |
-          for ko in cam_inject-*.ko; do
-            base=${ko%.ko}
-            mkdir -p /tmp/magisk/$base
-            cp magisk_module/* /tmp/magisk/$base/
+          find . -maxdepth 2 -name 'cam_inject-*.ko' -exec sh -c '
+            ko="$1"
+            base=$(basename "$ko" .ko)
+            mkdir -p /tmp/magisk/"$base"
+            cp magisk_module/* /tmp/magisk/"$base"/
             sed -i "s/version=.*/version=${base#cam_inject-}/" \
-              /tmp/magisk/$base/module.prop
-            cp "$ko" /tmp/magisk/$base/cam_inject.ko
-            cp injector-binary/injector /tmp/magisk/$base/injector
-            cd /tmp/magisk/$base
-            zip -r ${{ github.workspace }}/$base-magisk.zip .
-          done
+              /tmp/magisk/"$base"/module.prop
+            cp "$ko" /tmp/magisk/"$base"/cam_inject.ko
+            cp injector-binary/injector /tmp/magisk/"$base"/injector
+            cd /tmp/magisk/"$base"
+            zip -r "${{ github.workspace }}"/"$base"-magisk.zip .
+          ' sh {} \;
 
       - uses: actions/upload-artifact@v4
         with:
