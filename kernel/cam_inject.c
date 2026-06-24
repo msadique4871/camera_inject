@@ -30,8 +30,16 @@
 #include <linux/delay.h>
 #include <linux/atomic.h>
 #include <media/videobuf2-core.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+
+/* dma-buf vmap/vunmap compatibility:
+ * - Pre-5.11 / GKI 5.10: vmap returns void*, vunmap 1 arg (or 2 on GKI 5.10)
+ * - 5.11+ (some GKI 5.15): uses struct iosys_map
+ *
+ * We use __has_include to detect iosys-map.h at compile time.
+ */
+#if __has_include(<linux/iosys-map.h>)
 #include <linux/iosys-map.h>
+#define CI_HAVE_IOSYS_MAP 1
 #endif
 
 #define DRIVER_NAME "cam_inject"
@@ -123,7 +131,7 @@ static void inject_worker(struct work_struct *work)
     struct inject_work *iw = container_of(work, struct inject_work, work);
     struct dma_buf *dmabuf = iw->dbuf;
     void *vaddr = NULL;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+#if defined(CI_HAVE_IOSYS_MAP)
     struct iosys_map map;
 #endif
 
@@ -140,7 +148,7 @@ static void inject_worker(struct work_struct *work)
     dma_buf_begin_cpu_access(dmabuf, DMA_FROM_DEVICE);
 
     /* vmap the dma-buf into kernel address space */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+#if defined(CI_HAVE_IOSYS_MAP)
     if (dma_buf_vmap(dmabuf, &map) != 0) {
         dma_buf_end_cpu_access(dmabuf, DMA_FROM_DEVICE);
         goto out;
@@ -162,7 +170,7 @@ static void inject_worker(struct work_struct *work)
     /* Flush CPU writes so userspace sees our data */
     dma_buf_end_cpu_access(dmabuf, DMA_TO_DEVICE);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+#if defined(CI_HAVE_IOSYS_MAP)
     dma_buf_vunmap(dmabuf, &map);
 #else
     /*
