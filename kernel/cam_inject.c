@@ -164,7 +164,11 @@ static void inject_worker(struct work_struct *work)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
     dma_buf_vunmap(dmabuf, &map);
 #else
-    dma_buf_vunmap(dmabuf);
+    /*
+     * GKI android12-5.10 backported 2-arg dma_buf_vunmap(dmabuf, vaddr).
+     * Genuine 5.10 uses 1-arg; if it fails, change to dma_buf_vunmap(dmabuf).
+     */
+    dma_buf_vunmap(dmabuf, vaddr);
 #endif
 
     atomic_inc(&ci_inject_count);
