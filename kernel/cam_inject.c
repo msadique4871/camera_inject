@@ -46,8 +46,6 @@ static atomic_t            ci_enabled   = ATOMIC_INIT(0);
 static DEFINE_MUTEX(ci_frame_lock);
 static void               *ci_frame_buf   = NULL;
 static size_t              ci_frame_size  = 0;
-static int                 ci_frame_width  = 640;
-static int                 ci_frame_height = 480;
 
 #define TARGET_PIDS_MAX 64
 static pid_t               ci_target_pids[TARGET_PIDS_MAX];
