@@ -32,14 +32,21 @@
 #include <media/videobuf2-core.h>
 
 /* dma-buf vmap/vunmap compatibility:
- * - Pre-5.11 / GKI 5.10: vmap returns void*, vunmap 1 arg (or 2 on GKI 5.10)
- * - 5.11+ (some GKI 5.15): uses struct iosys_map
+ * - Pre-5.11 / GKI 5.10: vmap returns void*, vunmap 2-arg on GKI 5.10
+ * - GKI 5.15 / early 5.11: uses struct dma_buf_map (dma-buf-map.h)
+ * - Later 5.11+: renamed struct dma_buf_map -> struct iosys_map (iosys-map.h)
  *
- * We use __has_include to detect iosys-map.h at compile time.
+ * We use __has_include to detect which header exists at compile time,
+ * then alias it to a common ci_map type + helpers.
  */
-#if __has_include(<linux/iosys-map.h>)
+#if __has_include(<linux/dma-buf-map.h>)
+#include <linux/dma-buf-map.h>
+#define ci_map_t       struct dma_buf_map
+#define ci_map_init(m) do { } while (0)
+#elif __has_include(<linux/iosys-map.h>)
 #include <linux/iosys-map.h>
-#define CI_HAVE_IOSYS_MAP 1
+#define ci_map_t       struct iosys_map
+#define ci_map_init(m) do { } while (0)
 #endif
 
 #define DRIVER_NAME "cam_inject"
@@ -131,8 +138,8 @@ static void inject_worker(struct work_struct *work)
     struct inject_work *iw = container_of(work, struct inject_work, work);
     struct dma_buf *dmabuf = iw->dbuf;
     void *vaddr = NULL;
-#if defined(CI_HAVE_IOSYS_MAP)
-    struct iosys_map map;
+#ifdef ci_map_t
+    ci_map_t map;
 #endif
 
     if (!atomic_read(&ci_enabled) || !ci_frame_buf || ci_frame_size == 0)
@@ -148,7 +155,7 @@ static void inject_worker(struct work_struct *work)
     dma_buf_begin_cpu_access(dmabuf, DMA_FROM_DEVICE);
 
     /* vmap the dma-buf into kernel address space */
-#if defined(CI_HAVE_IOSYS_MAP)
+#ifdef ci_map_t
     if (dma_buf_vmap(dmabuf, &map) != 0) {
         dma_buf_end_cpu_access(dmabuf, DMA_FROM_DEVICE);
         goto out;
@@ -170,13 +177,9 @@ static void inject_worker(struct work_struct *work)
     /* Flush CPU writes so userspace sees our data */
     dma_buf_end_cpu_access(dmabuf, DMA_TO_DEVICE);
 
-#if defined(CI_HAVE_IOSYS_MAP)
+#ifdef ci_map_t
     dma_buf_vunmap(dmabuf, &map);
 #else
-    /*
-     * GKI android12-5.10 backported 2-arg dma_buf_vunmap(dmabuf, vaddr).
-     * Genuine 5.10 uses 1-arg; if it fails, change to dma_buf_vunmap(dmabuf).
-     */
     dma_buf_vunmap(dmabuf, vaddr);
 #endif
 
