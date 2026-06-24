@@ -12,7 +12,11 @@ jobs:
       matrix:
         gki-branch:
           - android12-5.10
-          - android13-5.15-2024-03_r9
+          - android13-5.15
+          - android13-5.15-2024-03_r1
+          - android13-5.15-2024-03_r3
+          - android13-5.15-2024-03_r5
+          - android13-5.15-2024-02_r1
           - android14-6.1
           - android15-6.6
     runs-on: ubuntu-22.04
