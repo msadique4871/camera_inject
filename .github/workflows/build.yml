@@ -44,6 +44,7 @@ jobs:
         run: |
           cd /tmp/gki-${{ matrix.gki-branch }}
           make ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- \
+            KBUILD_MODPOST_WARN=1 \
             M=${{ github.workspace }}/kernel \
             modules
 
