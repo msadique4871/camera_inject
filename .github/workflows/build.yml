@@ -23,7 +23,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
-            git curl bc bison flex libssl-dev make python3 dwarves
+            git curl bc bison flex libssl-dev libelf-dev make python3 dwarves
 
       - name: Fetch GKI kernel source (${{ matrix.gki-branch }})
         run: |
@@ -73,7 +73,6 @@ jobs:
           ${NDK_BIN}/aarch64-linux-android21-clang \
             -O2 -static -Wall -o injector injector.c
           file injector
-          ${NDK_BIN}/aarch64-linux-android-strip injector
 
       - uses: actions/upload-artifact@v4
         with:
