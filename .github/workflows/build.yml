@@ -1,0 +1,118 @@
+name: Build cam_inject.ko for GKI kernels
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:  # manual trigger from GitHub UI
+
+jobs:
+  build-gki:
+    strategy:
+      matrix:
+        gki-branch:
+          - android12-5.10
+          - android13-5.15
+          - android14-6.1
+          - android15-6.6
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            git curl bc bison flex libssl-dev make \
+            python3 python2 dwarves
+
+      - name: Fetch GKI kernel source (${{ matrix.gki-branch }})
+        run: |
+          # Use Android common kernel repo
+          git clone --depth=1 \
+            https://android.googlesource.com/kernel/common \
+            -b ${{ matrix.gki-branch }} \
+            /tmp/gki-${{ matrix.gki-branch }}
+          ls /tmp/gki-${{ matrix.gki-branch }}
+
+      - name: Generate GKI defconfig + prepare build
+        run: |
+          cd /tmp/gki-${{ matrix.gki-branch }}
+          # GKI uses gki_defconfig for arm64
+          make ARCH=arm64 CC=clang gki_defconfig
+          # Prepare module build tree
+          make ARCH=arm64 CC=clang modules_prepare
+
+      - name: Build cam_inject.ko
+        run: |
+          cd /tmp/gki-${{ matrix.gki-branch }}
+          # Build the module against this kernel tree
+          make ARCH=arm64 CC=clang \
+            M=${{ github.workspace }}/kernel \
+            modules
+
+      - name: Rename artifact per kernel version
+        run: |
+          mv kernel/cam_inject.ko \
+             cam_inject-${{ matrix.gki-branch }}.ko
+
+      - name: Upload .ko artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cam_inject-${{ matrix.gki-branch }}
+          path: cam_inject-${{ matrix.gki-branch }}.ko
+
+  build-userspace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build userspace injector (static binary)
+        run: |
+          sudo apt-get install -y -qq clang
+          cd userspace
+          clang -O2 -static -target aarch64-linux-android21 \
+            -o injector injector.c
+          file injector
+
+      - name: Upload injector artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: injector-binary
+          path: userspace/injector
+
+  package-magisk:
+    needs: [build-gki, build-userspace]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Assemble Magisk module zips
+        run: |
+          for ko in cam_inject-*.ko; do
+            # Extract kernel base name: cam_inject-androidXX-X.X
+            base=${ko%.ko}
+
+            mkdir -p /tmp/magisk/$base
+            cp magisk_module/* /tmp/magisk/$base/
+
+            # Update module.prop with correct version name
+            sed -i "s/version=.*/version=${base#cam_inject-}/" \
+              /tmp/magisk/$base/module.prop
+
+            # Copy kernel module and injector
+            cp "$ko" /tmp/magisk/$base/cam_inject.ko
+            cp injector-binary/injector /tmp/magisk/$base/injector
+
+            cd /tmp/magisk/$base
+            zip -r ${{ github.workspace }}/$base-magisk.zip .
+          done
+
+      - name: Upload Magisk zips
+        uses: actions/upload-artifact@v4
+        with:
+          name: magisk-modules
+          path: "cam_inject-*-magisk.zip"

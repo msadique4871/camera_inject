@@ -1,0 +1,6 @@
+id=camera_inject
+name=CamInject - Kernel Camera Spoofer
+version=0.1.0
+versionCode=1
+author=pentest-research
+description=Kernel-level camera frame injector via vb2_buffer_done kprobe. Loads cam_inject.ko and places injector binary. Control via /sys/camera_inject/*
