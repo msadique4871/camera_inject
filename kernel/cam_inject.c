@@ -30,6 +30,9 @@
 #include <linux/delay.h>
 #include <linux/atomic.h>
 #include <media/videobuf2-core.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+#include <linux/iosys-map.h>
+#endif
 
 #define DRIVER_NAME "cam_inject"
 #define FRAME_MAX_SIZE (4096 * 4096 * 4) /* 4K UHD x 4 bytes */
